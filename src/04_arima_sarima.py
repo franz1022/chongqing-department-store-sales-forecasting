@@ -1,0 +1,275 @@
+from pathlib import Path
+import warnings
+
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
+from sklearn.metrics import mean_absolute_error
+from statsmodels.tsa.statespace.sarimax import SARIMAX
+
+
+# ============================================================
+# 0. 基础设置
+# ============================================================
+
+warnings.filterwarnings("ignore")
+
+BASE_DIR = Path(__file__).resolve().parents[1]
+
+PROCESSED_DIR = BASE_DIR / "data" / "processed"
+OUTPUT_DIR = BASE_DIR / "outputs"
+FIGURE_DIR = OUTPUT_DIR / "figures"
+
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+FIGURE_DIR.mkdir(parents=True, exist_ok=True)
+
+INPUT_PATH = PROCESSED_DIR / "retail_sales_cleaned_merged.csv"
+BASELINE_PATH = OUTPUT_DIR / "baseline_model_comparison.csv"
+
+
+# ============================================================
+# 1. 读取数据
+# ============================================================
+
+df = pd.read_csv(INPUT_PATH)
+df["date"] = pd.to_datetime(df["date"])
+
+print("\n========== Loaded Data ==========")
+print(df.shape)
+print(df["date"].min(), "to", df["date"].max())
+
+
+# ============================================================
+# 2. 聚合成整体 weekly sales time series
+# ============================================================
+
+weekly_sales = (
+    df
+    .groupby("date", as_index=False)["weekly_sales"]
+    .sum()
+    .rename(columns={"weekly_sales": "total_weekly_sales"})
+    .sort_values("date")
+)
+
+weekly_sales["year"] = weekly_sales["date"].dt.year
+weekly_sales["month"] = weekly_sales["date"].dt.month
+weekly_sales["week_of_year"] = weekly_sales["date"].dt.isocalendar().week.astype(int)
+
+print("\n========== Weekly Sales ==========")
+print(weekly_sales.head())
+print(weekly_sales.tail())
+
+
+# ============================================================
+# 3. 划分训练集和测试集
+# 测试集：2024 年夏季 6、7、8 月
+# 训练集：测试集之前的所有数据
+# ============================================================
+
+test_start = pd.Timestamp("2024-06-01")
+test_end = pd.Timestamp("2024-08-31")
+
+train_df = weekly_sales[weekly_sales["date"] < test_start].copy()
+
+test_df = weekly_sales[
+    (weekly_sales["date"] >= test_start)
+    & (weekly_sales["date"] <= test_end)
+].copy()
+
+print("\n========== Train / Test Split ==========")
+print("Train date range:", train_df["date"].min(), "to", train_df["date"].max())
+print("Test date range:", test_df["date"].min(), "to", test_df["date"].max())
+print("Train rows:", train_df.shape[0])
+print("Test rows:", test_df.shape[0])
+
+
+# ============================================================
+# 4. 评估函数
+# ============================================================
+
+def mape(y_true, y_pred):
+    y_true = np.array(y_true)
+    y_pred = np.array(y_pred)
+
+    mask = y_true != 0
+    return np.mean(np.abs((y_true[mask] - y_pred[mask]) / y_true[mask])) * 100
+
+
+def evaluate_model(y_true, y_pred, model_name):
+    mae = mean_absolute_error(y_true, y_pred)
+    mape_value = mape(y_true, y_pred)
+
+    return {
+        "model": model_name,
+        "mae": mae,
+        "mape": mape_value,
+        "n_test_weeks": len(y_true)
+    }
+
+
+results = []
+
+
+# ============================================================
+# 5. ARIMA 模型
+# order=(1,1,1)
+# 含义：
+# p=1: 使用上一期信息
+# d=1: 一阶差分处理趋势
+# q=1: 使用上一期误差修正
+# ============================================================
+
+print("\n========== Training ARIMA(1,1,1) ==========")
+
+arima_model = SARIMAX(
+    train_df["total_weekly_sales"],
+    order=(1, 1, 1),
+    seasonal_order=(0, 0, 0, 0),
+    enforce_stationarity=False,
+    enforce_invertibility=False
+)
+
+arima_fit = arima_model.fit(disp=False, maxiter=200)
+
+arima_pred = arima_fit.forecast(steps=len(test_df))
+
+test_df["pred_arima_111"] = arima_pred.values
+
+results.append(
+    evaluate_model(
+        test_df["total_weekly_sales"],
+        test_df["pred_arima_111"],
+        "ARIMA(1,1,1)"
+    )
+)
+
+print("ARIMA completed.")
+
+
+# ============================================================
+# 6. SARIMA 模型
+# 数据是 weekly，所以使用 52 作为年度季节周期
+# 这里模型故意设得比较简单，避免本地电脑跑太久
+# ============================================================
+
+print("\n========== Training SARIMA(1,1,1)(1,0,0,52) ==========")
+
+try:
+    sarima_model = SARIMAX(
+        train_df["total_weekly_sales"],
+        order=(1, 1, 1),
+        seasonal_order=(1, 0, 0, 52),
+        enforce_stationarity=False,
+        enforce_invertibility=False
+    )
+
+    sarima_fit = sarima_model.fit(disp=False, maxiter=200)
+
+    sarima_pred = sarima_fit.forecast(steps=len(test_df))
+
+    test_df["pred_sarima"] = sarima_pred.values
+
+    results.append(
+        evaluate_model(
+            test_df["total_weekly_sales"],
+            test_df["pred_sarima"],
+            "SARIMA(1,1,1)(1,0,0,52)"
+        )
+    )
+
+    print("SARIMA completed.")
+
+except Exception as e:
+    print("SARIMA failed. Error message:")
+    print(e)
+    test_df["pred_sarima"] = np.nan
+
+
+# ============================================================
+# 7. 保存 ARIMA / SARIMA 结果
+# ============================================================
+
+arima_results_df = pd.DataFrame(results)
+
+print("\n========== ARIMA / SARIMA Model Comparison ==========")
+print(arima_results_df)
+
+arima_results_path = OUTPUT_DIR / "arima_sarima_model_comparison.csv"
+arima_forecast_path = OUTPUT_DIR / "arima_sarima_forecast_2024_summer.csv"
+
+arima_results_df.to_csv(arima_results_path, index=False)
+test_df.to_csv(arima_forecast_path, index=False)
+
+print("\nSaved ARIMA outputs to:")
+print(arima_results_path)
+print(arima_forecast_path)
+
+
+# ============================================================
+# 8. 和 baseline 结果合并
+# ============================================================
+
+if BASELINE_PATH.exists():
+    baseline_results = pd.read_csv(BASELINE_PATH)
+
+    combined_results = pd.concat(
+        [baseline_results, arima_results_df],
+        ignore_index=True
+    )
+
+    combined_results = combined_results.sort_values("mape")
+
+    combined_path = OUTPUT_DIR / "model_comparison_baseline_arima.csv"
+    combined_results.to_csv(combined_path, index=False)
+
+    print("\n========== Combined Model Comparison ==========")
+    print(combined_results)
+
+    print("\nSaved combined comparison to:")
+    print(combined_path)
+
+
+# ============================================================
+# 9. 画图：Actual vs ARIMA / SARIMA
+# ============================================================
+
+plt.figure(figsize=(12, 6))
+
+plt.plot(
+    test_df["date"],
+    test_df["total_weekly_sales"],
+    marker="o",
+    label="Actual"
+)
+
+plt.plot(
+    test_df["date"],
+    test_df["pred_arima_111"],
+    marker="o",
+    label="ARIMA(1,1,1)"
+)
+
+if "pred_sarima" in test_df.columns and test_df["pred_sarima"].notna().any():
+    plt.plot(
+        test_df["date"],
+        test_df["pred_sarima"],
+        marker="o",
+        label="SARIMA(1,1,1)(1,0,0,52)"
+    )
+
+plt.title("2024 Summer Weekly Sales: Actual vs ARIMA/SARIMA Forecasts")
+plt.xlabel("Date")
+plt.ylabel("Total Weekly Sales")
+plt.legend()
+plt.grid(True, alpha=0.3)
+plt.tight_layout()
+
+figure_path = FIGURE_DIR / "11_arima_sarima_forecast_2024_summer.png"
+plt.savefig(figure_path, dpi=150)
+plt.close()
+
+print("\nSaved figure to:")
+print(figure_path)
+
+print("\nARIMA / SARIMA forecasting completed successfully.")

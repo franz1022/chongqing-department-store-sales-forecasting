@@ -1,0 +1,11 @@
+metric,value
+first_year,2022
+last_year,2024
+summer_sales_growth_pct,7.64
+best_summer_month,July
+top_store_type,A
+top_region,East
+best_model,Random Forest Aggregate
+best_model_mape,1.4813
+rolling_baseline_mape,3.8716
+model_improvement_over_baseline_pct,61.74

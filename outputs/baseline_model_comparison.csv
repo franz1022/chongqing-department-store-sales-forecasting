@@ -1,0 +1,4 @@
+model,mae,mape,n_test_weeks
+Last Week Baseline,2664538.4899999998,5.054679201886051,14
+Rolling 4-Week Average Baseline,2091545.9812500004,3.8715993959583797,14
+Previous Year Same Week Baseline,4465679.786428571,8.685983216127761,14
