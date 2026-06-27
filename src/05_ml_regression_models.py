@@ -63,8 +63,7 @@ markdown_cols = [col for col in df.columns if col.startswith("markdown")]
 df["total_markdown"] = df[markdown_cols].sum(axis=1)
 
 # 是否有 markdown
-df["has_markdown"] = (df["total_markdown"] > 0).astype(int)
-
+# has_markdown is constant for all rows, so it is excluded from modelling.
 # 确保排序正确
 df = df.sort_values(["store_id", "department", "date"]).copy()
 
@@ -164,7 +163,6 @@ numeric_features = [
     "markdown_4",
     "markdown_5",
     "total_markdown",
-    "has_markdown",
     "is_holiday",
     "lag_1",
     "lag_4",
@@ -232,24 +230,85 @@ preprocessor = ColumnTransformer(
 # ============================================================
 
 def mape(y_true, y_pred):
-    y_true = np.array(y_true)
-    y_pred = np.array(y_pred)
+    y_true = np.asarray(y_true, dtype=float)
+    y_pred = np.asarray(y_pred, dtype=float)
 
     mask = y_true != 0
-    return np.mean(np.abs((y_true[mask] - y_pred[mask]) / y_true[mask])) * 100
+
+    if not np.any(mask):
+        return np.nan
+
+    return (
+        np.mean(
+            np.abs(
+                (y_true[mask] - y_pred[mask])
+                / y_true[mask]
+            )
+        )
+        * 100
+    )
+
+
+def wape(y_true, y_pred):
+    """
+    Weighted Absolute Percentage Error.
+
+    Measures total absolute forecast error relative to total actual sales.
+    Lower values are better.
+    """
+    y_true = np.asarray(y_true, dtype=float)
+    y_pred = np.asarray(y_pred, dtype=float)
+
+    denominator = np.sum(np.abs(y_true))
+
+    if denominator == 0:
+        return np.nan
+
+    return (
+        np.sum(np.abs(y_true - y_pred))
+        / denominator
+        * 100
+    )
+
+
+def forecast_bias(y_true, y_pred):
+    """
+    Signed forecast bias as a percentage of total actual sales.
+
+    Positive: overall over-forecasting.
+    Negative: overall under-forecasting.
+    """
+    y_true = np.asarray(y_true, dtype=float)
+    y_pred = np.asarray(y_pred, dtype=float)
+
+    denominator = np.sum(np.abs(y_true))
+
+    if denominator == 0:
+        return np.nan
+
+    return (
+        np.sum(y_pred - y_true)
+        / denominator
+        * 100
+    )
 
 
 def evaluate_model(y_true, y_pred, model_name):
     mae = mean_absolute_error(y_true, y_pred)
     rmse = mean_squared_error(y_true, y_pred) ** 0.5
     mape_value = mape(y_true, y_pred)
+    wape_value = wape(y_true, y_pred)
+    bias_value = forecast_bias(y_true, y_pred)
 
     return {
         "model": model_name,
         "mae": mae,
         "rmse": rmse,
         "mape": mape_value,
+        "wape": wape_value,
+        "forecast_bias": bias_value,
         "n_test_rows": len(y_true),
+        "evaluation_level": "store_department_week",
     }
 
 
@@ -381,40 +440,7 @@ print(ml_predictions_path)
 
 
 # ============================================================
-# 13. 合并 baseline + ARIMA + ML 结果
-# 注意：ARIMA 是总销售额级别，ML 是 store-department 级别
-# 所以不能直接完全等价比较，但可以作为整体误差参考
-# ============================================================
-
-combined_results = ml_results_df.copy()
-
-if BASELINE_ARIMA_PATH.exists():
-    previous_results = pd.read_csv(BASELINE_ARIMA_PATH)
-
-    # 为了表格统一，补一列 n_test_rows
-    if "n_test_rows" not in previous_results.columns:
-        previous_results["n_test_rows"] = np.nan
-
-    combined_results = pd.concat(
-        [previous_results, ml_results_df],
-        ignore_index=True,
-        sort=False
-    )
-
-combined_results = combined_results.sort_values("mape")
-
-combined_path = OUTPUT_DIR / "final_model_comparison.csv"
-combined_results.to_csv(combined_path, index=False)
-
-print("\n========== Final Model Comparison ==========")
-print(combined_results)
-
-print("\nSaved final comparison to:")
-print(combined_path)
-
-
-# ============================================================
-# 14. 画图：按 date 聚合后的 Actual vs ML Predictions
+# 13. Plot aggregate Actual vs ML predictions by date
 # ============================================================
 
 plot_df = predictions.groupby("date", as_index=False).agg(
@@ -475,7 +501,7 @@ print(figure_path)
 
 
 # ============================================================
-# 15. XGBoost 特征重要性
+# 14. XGBoost 特征重要性
 # ============================================================
 
 if xgb_model is not None:
@@ -516,21 +542,29 @@ if xgb_model is not None:
         print(e)
 
 # ============================================================
-# 16. 额外评估：把 ML 预测结果按 date 聚合后评估
+# 15. 额外评估：把 ML 预测结果按 date 聚合后评估
 # 这样才能和 ARIMA / baseline 的整体周销售额预测进行比较
 # ============================================================
 
 def evaluate_aggregate_model(data, actual_col, pred_col, model_name):
-    mae = mean_absolute_error(data[actual_col], data[pred_col])
-    rmse = mean_squared_error(data[actual_col], data[pred_col]) ** 0.5
-    mape_value = mape(data[actual_col], data[pred_col])
+    actual = data[actual_col]
+    predicted = data[pred_col]
+
+    mae = mean_absolute_error(actual, predicted)
+    rmse = mean_squared_error(actual, predicted) ** 0.5
+    mape_value = mape(actual, predicted)
+    wape_value = wape(actual, predicted)
+    bias_value = forecast_bias(actual, predicted)
 
     return {
         "model": model_name,
         "mae": mae,
         "rmse": rmse,
         "mape": mape_value,
+        "wape": wape_value,
+        "forecast_bias": bias_value,
         "n_test_weeks": data.shape[0],
+        "evaluation_level": "company_week",
     }
 
 
@@ -577,7 +611,7 @@ print(aggregate_results_path)
 
 
 # ============================================================
-# 17. 生成真正可比较的最终模型表
+# 16. 生成真正可比较的最终模型表
 # baseline / ARIMA / aggregate ML 都是整体每周销售额层面
 # ============================================================
 

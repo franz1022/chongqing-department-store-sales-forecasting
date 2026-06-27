@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
-from sklearn.metrics import mean_absolute_error
+from sklearn.metrics import mean_absolute_error, mean_squared_error
 from statsmodels.tsa.statespace.sarimax import SARIMAX
 
 
@@ -89,24 +89,74 @@ print("Test rows:", test_df.shape[0])
 # ============================================================
 
 def mape(y_true, y_pred):
-    y_true = np.array(y_true)
-    y_pred = np.array(y_pred)
+    y_true = np.asarray(y_true, dtype=float)
+    y_pred = np.asarray(y_pred, dtype=float)
 
     mask = y_true != 0
-    return np.mean(np.abs((y_true[mask] - y_pred[mask]) / y_true[mask])) * 100
+
+    if not np.any(mask):
+        return np.nan
+
+    return (
+        np.mean(
+            np.abs(
+                (y_true[mask] - y_pred[mask])
+                / y_true[mask]
+            )
+        )
+        * 100
+    )
+
+
+def wape(y_true, y_pred):
+    y_true = np.asarray(y_true, dtype=float)
+    y_pred = np.asarray(y_pred, dtype=float)
+
+    denominator = np.sum(np.abs(y_true))
+
+    if denominator == 0:
+        return np.nan
+
+    return (
+        np.sum(np.abs(y_true - y_pred))
+        / denominator
+        * 100
+    )
+
+
+def forecast_bias(y_true, y_pred):
+    y_true = np.asarray(y_true, dtype=float)
+    y_pred = np.asarray(y_pred, dtype=float)
+
+    denominator = np.sum(np.abs(y_true))
+
+    if denominator == 0:
+        return np.nan
+
+    return (
+        np.sum(y_pred - y_true)
+        / denominator
+        * 100
+    )
 
 
 def evaluate_model(y_true, y_pred, model_name):
     mae = mean_absolute_error(y_true, y_pred)
+    rmse = mean_squared_error(y_true, y_pred) ** 0.5
     mape_value = mape(y_true, y_pred)
+    wape_value = wape(y_true, y_pred)
+    bias_value = forecast_bias(y_true, y_pred)
 
     return {
         "model": model_name,
         "mae": mae,
+        "rmse": rmse,
         "mape": mape_value,
-        "n_test_weeks": len(y_true)
+        "wape": wape_value,
+        "forecast_bias": bias_value,
+        "n_test_weeks": len(y_true),
+        "evaluation_level": "company_week",
     }
-
 
 results = []
 

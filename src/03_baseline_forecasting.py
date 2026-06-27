@@ -2,7 +2,7 @@ from pathlib import Path
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-from sklearn.metrics import mean_absolute_error
+from sklearn.metrics import mean_absolute_error, mean_squared_error
 
 
 # ============================================================
@@ -98,26 +98,79 @@ print("Test rows:", test_df.shape[0])
 # ============================================================
 
 def mape(y_true, y_pred):
-    y_true = np.array(y_true)
-    y_pred = np.array(y_pred)
+    y_true = np.asarray(y_true, dtype=float)
+    y_pred = np.asarray(y_pred, dtype=float)
 
     mask = y_true != 0
-    return np.mean(np.abs((y_true[mask] - y_pred[mask]) / y_true[mask])) * 100
+
+    if not np.any(mask):
+        return np.nan
+
+    return (
+        np.mean(
+            np.abs(
+                (y_true[mask] - y_pred[mask])
+                / y_true[mask]
+            )
+        )
+        * 100
+    )
+
+
+def wape(y_true, y_pred):
+    y_true = np.asarray(y_true, dtype=float)
+    y_pred = np.asarray(y_pred, dtype=float)
+
+    denominator = np.sum(np.abs(y_true))
+
+    if denominator == 0:
+        return np.nan
+
+    return (
+        np.sum(np.abs(y_true - y_pred))
+        / denominator
+        * 100
+    )
+
+
+def forecast_bias(y_true, y_pred):
+    y_true = np.asarray(y_true, dtype=float)
+    y_pred = np.asarray(y_pred, dtype=float)
+
+    denominator = np.sum(np.abs(y_true))
+
+    if denominator == 0:
+        return np.nan
+
+    return (
+        np.sum(y_pred - y_true)
+        / denominator
+        * 100
+    )
 
 
 def evaluate_baseline(data, pred_col, model_name):
     valid = data.dropna(subset=[pred_col]).copy()
 
-    mae = mean_absolute_error(valid["total_weekly_sales"], valid[pred_col])
-    mape_value = mape(valid["total_weekly_sales"], valid[pred_col])
+    actual = valid["total_weekly_sales"]
+    predicted = valid[pred_col]
+
+    mae = mean_absolute_error(actual, predicted)
+    rmse = mean_squared_error(actual, predicted) ** 0.5
+    mape_value = mape(actual, predicted)
+    wape_value = wape(actual, predicted)
+    bias_value = forecast_bias(actual, predicted)
 
     return {
         "model": model_name,
         "mae": mae,
+        "rmse": rmse,
         "mape": mape_value,
-        "n_test_weeks": valid.shape[0]
+        "wape": wape_value,
+        "forecast_bias": bias_value,
+        "n_test_weeks": valid.shape[0],
+        "evaluation_level": "company_week",
     }
-
 
 results = []
 
