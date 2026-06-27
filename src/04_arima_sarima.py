@@ -170,74 +170,147 @@ results = []
 # q=1: 使用上一期误差修正
 # ============================================================
 
-print("\n========== Training ARIMA(1,1,1) ==========")
+def rolling_one_step_forecast(
+    fitted_result,
+    actual_values,
+    model_label,
+):
+    """
+    Generate rolling one-week-ahead forecasts.
+
+    Model parameters remain fixed after training, while the model state is
+    updated with each newly observed actual weekly sales value.
+    """
+    predictions = []
+    current_result = fitted_result
+    total_steps = len(actual_values)
+
+    for step_number, actual_value in enumerate(
+        actual_values,
+        start=1,
+    ):
+        next_forecast = current_result.forecast(steps=1)
+
+        predicted_value = float(
+            np.asarray(next_forecast, dtype=float)[0]
+        )
+
+        predictions.append(predicted_value)
+
+        print(
+            f"{model_label} rolling step "
+            f"{step_number}/{total_steps} completed."
+        )
+
+        current_result = current_result.append(
+            endog=np.asarray(
+                [actual_value],
+                dtype=float,
+            ),
+            refit=False,
+        )
+
+    return np.asarray(predictions, dtype=float)
+
+
+train_values = train_df[
+    "total_weekly_sales"
+].to_numpy(dtype=float)
+
+test_values = test_df[
+    "total_weekly_sales"
+].to_numpy(dtype=float)
+
+
+# ============================================================
+# 5. Rolling one-week-ahead ARIMA
+# ============================================================
+
+print(
+    "\n========== Training Rolling ARIMA(1,1,1) =========="
+)
 
 arima_model = SARIMAX(
-    train_df["total_weekly_sales"],
+    train_values,
     order=(1, 1, 1),
     seasonal_order=(0, 0, 0, 0),
     enforce_stationarity=False,
-    enforce_invertibility=False
+    enforce_invertibility=False,
 )
 
-arima_fit = arima_model.fit(disp=False, maxiter=200)
+arima_fit = arima_model.fit(
+    disp=False,
+    maxiter=200,
+)
 
-arima_pred = arima_fit.forecast(steps=len(test_df))
+arima_pred = rolling_one_step_forecast(
+    fitted_result=arima_fit,
+    actual_values=test_values,
+    model_label="ARIMA",
+)
 
-test_df["pred_arima_111"] = arima_pred.values
+test_df["pred_arima_111"] = arima_pred
 
 results.append(
     evaluate_model(
         test_df["total_weekly_sales"],
         test_df["pred_arima_111"],
-        "ARIMA(1,1,1)"
+        "ARIMA(1,1,1) Rolling",
     )
 )
 
-print("ARIMA completed.")
+print("Rolling ARIMA completed.")
 
 
 # ============================================================
-# 6. SARIMA 模型
-# 数据是 weekly，所以使用 52 作为年度季节周期
-# 这里模型故意设得比较简单，避免本地电脑跑太久
+# 6. Rolling one-week-ahead SARIMA
 # ============================================================
 
-print("\n========== Training SARIMA(1,1,1)(1,0,0,52) ==========")
+print(
+    "\n========== Training Rolling "
+    "SARIMA(1,1,1)(1,0,0,52) =========="
+)
 
 try:
     sarima_model = SARIMAX(
-        train_df["total_weekly_sales"],
+        train_values,
         order=(1, 1, 1),
         seasonal_order=(1, 0, 0, 52),
         enforce_stationarity=False,
-        enforce_invertibility=False
+        enforce_invertibility=False,
     )
 
-    sarima_fit = sarima_model.fit(disp=False, maxiter=200)
+    sarima_fit = sarima_model.fit(
+        disp=False,
+        maxiter=200,
+    )
 
-    sarima_pred = sarima_fit.forecast(steps=len(test_df))
+    sarima_pred = rolling_one_step_forecast(
+        fitted_result=sarima_fit,
+        actual_values=test_values,
+        model_label="SARIMA",
+    )
 
-    test_df["pred_sarima"] = sarima_pred.values
+    test_df["pred_sarima"] = sarima_pred
 
     results.append(
         evaluate_model(
             test_df["total_weekly_sales"],
             test_df["pred_sarima"],
-            "SARIMA(1,1,1)(1,0,0,52)"
+            "SARIMA(1,1,1)(1,0,0,52) Rolling",
         )
     )
 
-    print("SARIMA completed.")
+    print("Rolling SARIMA completed.")
 
-except Exception as e:
-    print("SARIMA failed. Error message:")
-    print(e)
+except Exception as error:
+    print("Rolling SARIMA failed. Error message:")
+    print(error)
     test_df["pred_sarima"] = np.nan
 
 
 # ============================================================
-# 7. 保存 ARIMA / SARIMA 结果
+# 7. Save rolling ARIMA / SARIMA results
 # ============================================================
 
 arima_results_df = pd.DataFrame(results)
