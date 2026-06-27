@@ -82,15 +82,67 @@ print("sales duplicated:", sales.duplicated().sum())
 print("features duplicated:", features.duplicated().sum())
 print("stores duplicated:", stores.duplicated().sum())
 
-
 # ============================================================
-# 5. 去重
+# 5. 业务主键唯一性检查
 # ============================================================
 
-sales = sales.drop_duplicates()
-features = features.drop_duplicates()
-stores = stores.drop_duplicates()
+def validate_unique_key(
+    df: pd.DataFrame,
+    key_columns: list[str],
+    dataset_name: str,
+) -> None:
+    """
+    检查业务主键是否唯一。
 
+    不直接删除重复记录，因为静默去重可能掩盖原始数据问题。
+    如果发现重复业务主键，程序会停止并显示部分问题记录。
+    """
+
+    duplicate_mask = df.duplicated(
+        subset=key_columns,
+        keep=False,
+    )
+
+    duplicate_count = int(duplicate_mask.sum())
+
+    if duplicate_count > 0:
+        duplicate_sample = (
+            df.loc[duplicate_mask, key_columns]
+            .sort_values(key_columns)
+            .head(10)
+        )
+
+        raise ValueError(
+            f"\n{dataset_name} contains {duplicate_count:,} rows "
+            f"involved in duplicate business keys.\n"
+            f"Key columns: {key_columns}\n"
+            f"Sample duplicate keys:\n"
+            f"{duplicate_sample.to_string(index=False)}"
+        )
+
+    print(
+        f"{dataset_name} business key validation: PASS "
+        f"({key_columns})"
+    )
+
+
+validate_unique_key(
+    sales,
+    ["store_id", "department", "date"],
+    "Sales",
+)
+
+validate_unique_key(
+    features,
+    ["store_id", "date"],
+    "Features",
+)
+
+validate_unique_key(
+    stores,
+    ["store_id"],
+    "Stores",
+)
 
 # ============================================================
 # 6. 清洗 sales 表
@@ -157,20 +209,83 @@ if "store_size" in stores.columns:
 # sales + features + stores
 # ============================================================
 
+sales_row_count = len(sales)
+
+# Sales 中的多条部门记录，对应 Features 中的一条门店周度记录
 df = sales.merge(
     features,
     on=["store_id", "date"],
     how="left",
-    suffixes=("_sales", "_features")
+    suffixes=("_sales", "_features"),
+    validate="many_to_one",
+    indicator="features_merge_status",
 )
 
+unmatched_feature_rows = int(
+    (df["features_merge_status"] != "both").sum()
+)
+
+if unmatched_feature_rows > 0:
+    raise ValueError(
+        f"{unmatched_feature_rows:,} sales rows did not match "
+        "a Features record."
+    )
+
+df = df.drop(columns=["features_merge_status"])
+
+# Sales 中的多条记录，对应 Stores 中的一条门店资料
 df = df.merge(
     stores,
     on="store_id",
-    how="left"
+    how="left",
+    validate="many_to_one",
+    indicator="stores_merge_status",
 )
 
+unmatched_store_rows = int(
+    (df["stores_merge_status"] != "both").sum()
+)
 
+if unmatched_store_rows > 0:
+    raise ValueError(
+        f"{unmatched_store_rows:,} sales rows did not match "
+        "a Stores record."
+    )
+
+df = df.drop(columns=["stores_merge_status"])
+
+# 合并后行数必须和 Sales 原始行数相同
+if len(df) != sales_row_count:
+    raise ValueError(
+        "Row count changed unexpectedly after merging: "
+        f"{sales_row_count:,} → {len(df):,}"
+    )
+
+print(
+    f"Merge row-count validation: PASS "
+    f"({sales_row_count:,} rows)"
+)
+
+# 合并前已经分别保留了 Sales 和 Features 的 holiday 字段
+if {
+    "is_holiday_sales",
+    "is_holiday_features",
+}.issubset(df.columns):
+
+    holiday_mismatch_count = int(
+        (
+            df["is_holiday_sales"]
+            != df["is_holiday_features"]
+        ).sum()
+    )
+
+    if holiday_mismatch_count > 0:
+        raise ValueError(
+            f"Holiday flag mismatch found in "
+            f"{holiday_mismatch_count:,} merged rows."
+        )
+
+    print("Holiday consistency validation: PASS")
 # ============================================================
 # 10. 统一 holiday 字段
 # ============================================================
