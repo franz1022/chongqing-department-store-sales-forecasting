@@ -3,9 +3,21 @@ first_year,2022
 last_year,2024
 summer_sales_growth_pct,7.64
 best_summer_month,July
+best_summer_month_sales,726302012.62
 top_store_type,A
+top_store_type_sales,1481374814.88
 top_region,East
-best_model,Random Forest Aggregate
-best_model_mape,1.4813
-rolling_baseline_mape,3.8716
-model_improvement_over_baseline_pct,61.74
+top_region_sales,657586124.37
+selected_model,Operational XGBoost
+mean_company_mape,1.8175
+mean_company_wape,1.9072
+median_company_wape,1.8478
+std_company_wape,0.4185
+min_company_wape,1.3868
+max_company_wape,2.5806
+mean_company_bias,0.2474
+mean_absolute_company_bias,0.6641
+fold_wins,5
+total_folds,6
+rolling_baseline_mean_wape,10.5589
+wape_reduction_over_baseline_pct,81.94
