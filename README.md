@@ -104,8 +104,8 @@ chongqing-summer-sales-forecasting/
 │   ├── 05_ml_regression_models.py
 │   ├── 05b_feature_availability_sensitivity.py
 │   ├── 06_rolling_origin_backtesting.py
-│   ├── 06_business_recommendations.py
-│   └── 07_project_workflow_diagram.py
+│   ├── 07_business_recommendations.py
+│   └── 08_project_workflow_diagram.py
 │
 ├── outputs/
 │   ├── figures/
@@ -416,8 +416,8 @@ python .\src\04_arima_sarima.py
 python .\src\05_ml_regression_models.py
 python .\src\05b_feature_availability_sensitivity.py
 python .\src\06_rolling_origin_backtesting.py
-python .\src\06_business_recommendations.py
-python .\src\07_project_workflow_diagram.py
+python .\src\07_business_recommendations.py
+python .\src\08_project_workflow_diagram.py
 ```
 
 ---
@@ -491,4 +491,5 @@ Developed a store-department weekly sales forecasting pipeline using leakage-saf
 ## 20. Disclaimer
 
 This repository is a portfolio and methodology project. It does not claim access to confidential internal data from a real Chongqing retailer.
+
 
