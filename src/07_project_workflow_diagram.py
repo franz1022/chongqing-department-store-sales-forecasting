@@ -1,11 +1,11 @@
-import os
-from pathlib import Path
+﻿from pathlib import Path
 
 import matplotlib
+
 matplotlib.use("Agg")
 
 import matplotlib.pyplot as plt
-from matplotlib.patches import FancyBboxPatch, FancyArrowPatch
+from matplotlib.patches import FancyArrowPatch, FancyBboxPatch
 
 
 # ============================================================
@@ -16,48 +16,68 @@ BASE_DIR = Path(__file__).resolve().parents[1]
 FIGURE_DIR = BASE_DIR / "outputs" / "figures"
 FIGURE_DIR.mkdir(parents=True, exist_ok=True)
 
-OUTPUT_PATH = FIGURE_DIR / "15_project_workflow_diagram.png"
+OUTPUT_PATH = FIGURE_DIR / "17_project_workflow_diagram.png"
 
 
 # ============================================================
-# 1. 可修改区域（你以后想调图，主要改这里）
+# 1. 可修改参数
 # ============================================================
 
-FIG_W = 18
-FIG_H = 10
+FIG_W = 24
+FIG_H = 14
 DPI = 180
 
 TITLE = "Retail Sales Forecasting Project Workflow"
-SUBTITLE = "Chongqing Department Store Summer Sales Forecasting"
+SUBTITLE = (
+    "Data validation, leakage-safe modeling, "
+    "feature availability audit, and rolling-origin backtesting"
+)
 
-BOX_W = 2.8
-BOX_H = 1.0
+BOX_W = 3.55
+BOX_H = 1.25
 BOX_ROUND = 0.08
 
-FONT_TITLE = 22
+FONT_TITLE = 23
 FONT_SUBTITLE = 12
-FONT_BOX = 10
+FONT_BOX = 9
 FONT_SECTION = 13
+FONT_FOOTER = 10
 
-ARROW_LW = 1.8
 BOX_LW = 1.5
+ARROW_LW = 1.8
 
-# 颜色
-COLOR_DATA = "#DCEBFA"
-COLOR_EDA = "#E8F6E8"
-COLOR_MODEL = "#FFF2CC"
-COLOR_EVAL = "#FCE4EC"
-COLOR_BIZ = "#EDE7F6"
-COLOR_EDGE = "#4A4A4A"
+COLOR_RAW = "#DCEBFA"
+COLOR_VALIDATION = "#D9EAD3"
+COLOR_ANALYSIS = "#FFF2CC"
+COLOR_MODEL = "#FCE5CD"
+COLOR_EVALUATION = "#EADCF8"
+COLOR_FINAL = "#F4CCCC"
+COLOR_EDGE = "#444444"
+
+X_POSITIONS = [
+    0.7,
+    5.1,
+    9.5,
+    13.9,
+    18.3,
+]
+
+ROW_1_Y = 10.0
+ROW_2_Y = 6.2
+ROW_3_Y = 2.4
 
 
 # ============================================================
 # 2. 画布
 # ============================================================
 
-fig, ax = plt.subplots(figsize=(FIG_W, FIG_H), dpi=DPI)
-ax.set_xlim(0, 20)
-ax.set_ylim(0, 12)
+fig, ax = plt.subplots(
+    figsize=(FIG_W, FIG_H),
+    dpi=DPI,
+)
+
+ax.set_xlim(0, 22.6)
+ax.set_ylim(0, 14)
 ax.axis("off")
 
 
@@ -65,44 +85,114 @@ ax.axis("off")
 # 3. 工具函数
 # ============================================================
 
-def draw_box(x, y, w, h, text, facecolor, fontsize=FONT_BOX):
+def draw_box(
+    x,
+    y,
+    text,
+    facecolor,
+    fontsize=FONT_BOX,
+):
     box = FancyBboxPatch(
-        (x, y), w, h,
-        boxstyle=f"round,pad=0.02,rounding_size={BOX_ROUND}",
+        (x, y),
+        BOX_W,
+        BOX_H,
+        boxstyle=(
+            "round,pad=0.02,"
+            f"rounding_size={BOX_ROUND}"
+        ),
         linewidth=BOX_LW,
         edgecolor=COLOR_EDGE,
-        facecolor=facecolor
+        facecolor=facecolor,
     )
+
     ax.add_patch(box)
+
     ax.text(
-        x + w / 2,
-        y + h / 2,
+        x + BOX_W / 2,
+        y + BOX_H / 2,
         text,
         ha="center",
         va="center",
-        fontsize=fontsize
+        fontsize=fontsize,
     )
 
 
-def draw_arrow(x1, y1, x2, y2):
+def draw_horizontal_arrow(
+    start_x,
+    end_x,
+    y,
+):
+    if end_x > start_x:
+        point_1 = (
+            start_x + BOX_W,
+            y + BOX_H / 2,
+        )
+        point_2 = (
+            end_x,
+            y + BOX_H / 2,
+        )
+    else:
+        point_1 = (
+            start_x,
+            y + BOX_H / 2,
+        )
+        point_2 = (
+            end_x + BOX_W,
+            y + BOX_H / 2,
+        )
+
     arrow = FancyArrowPatch(
-        (x1, y1),
-        (x2, y2),
+        point_1,
+        point_2,
         arrowstyle="->",
-        mutation_scale=14,
+        mutation_scale=15,
         linewidth=ARROW_LW,
-        color=COLOR_EDGE
+        color=COLOR_EDGE,
     )
+
     ax.add_patch(arrow)
 
 
-def draw_section_title(x, y, text):
+def draw_vertical_arrow(
+    x,
+    start_y,
+    end_y,
+):
+    point_1 = (
+        x + BOX_W / 2,
+        start_y,
+    )
+
+    point_2 = (
+        x + BOX_W / 2,
+        end_y + BOX_H,
+    )
+
+    arrow = FancyArrowPatch(
+        point_1,
+        point_2,
+        arrowstyle="->",
+        mutation_scale=15,
+        linewidth=ARROW_LW,
+        color=COLOR_EDGE,
+    )
+
+    ax.add_patch(arrow)
+
+
+def draw_section_title(
+    x,
+    y,
+    text,
+):
     ax.text(
-        x, y, text,
+        x,
+        y,
+        text,
         ha="left",
         va="bottom",
         fontsize=FONT_SECTION,
-        fontweight="bold"
+        fontweight="bold",
     )
 
 
@@ -111,117 +201,232 @@ def draw_section_title(x, y, text):
 # ============================================================
 
 ax.text(
-    10, 11.3,
+    11.3,
+    13.25,
     TITLE,
-    ha="center", va="center",
+    ha="center",
+    va="center",
     fontsize=FONT_TITLE,
-    fontweight="bold"
+    fontweight="bold",
 )
 
 ax.text(
-    10, 10.8,
+    11.3,
+    12.72,
     SUBTITLE,
-    ha="center", va="center",
-    fontsize=FONT_SUBTITLE
+    ha="center",
+    va="center",
+    fontsize=FONT_SUBTITLE,
 )
 
 
 # ============================================================
-# 5. Section Titles
+# 5. 第一层：数据验证与清洗
 # ============================================================
 
-draw_section_title(0.8, 9.8, "Data Layer")
-draw_section_title(0.8, 7.0, "Analysis & Modeling Layer")
-draw_section_title(0.8, 3.2, "Evaluation & Business Layer")
+draw_section_title(
+    0.7,
+    11.45,
+    "1. Data Validation and Preparation",
+)
 
+draw_box(
+    X_POSITIONS[0],
+    ROW_1_Y,
+    "Raw Tables\nsales / features /\nstores",
+    COLOR_RAW,
+)
 
-# ============================================================
-# 6. 第一层：数据层
-# ============================================================
+draw_box(
+    X_POSITIONS[1],
+    ROW_1_Y,
+    "00_inspect_raw_data.py\nRaw Structure\nInspection",
+    COLOR_VALIDATION,
+)
 
-draw_box(1.0, 8.5, BOX_W, BOX_H, "sales.csv\nWeekly Sales", COLOR_DATA)
-draw_box(4.2, 8.5, BOX_W, BOX_H, "features.csv\nMarkdown / Holiday /\nEconomic Features", COLOR_DATA)
-draw_box(7.4, 8.5, BOX_W, BOX_H, "stores.csv\nStore Type / Size /\nRegion", COLOR_DATA)
-draw_box(10.8, 8.5, BOX_W, BOX_H, "01_data_cleaning.py\nData Cleaning & Merge", COLOR_DATA)
-draw_box(14.2, 8.5, BOX_W, BOX_H, "Merged Dataset\nretail_sales_cleaned_merged.csv", COLOR_DATA)
+draw_box(
+    X_POSITIONS[2],
+    ROW_1_Y,
+    "00_validate_relationships.py\nBusiness Keys &\nRelationship Checks",
+    COLOR_VALIDATION,
+)
 
-draw_arrow(3.8, 9.0, 4.2, 9.0)
-draw_arrow(7.0, 9.0, 7.4, 9.0)
-draw_arrow(10.2, 9.0, 10.8, 9.0)
-draw_arrow(13.6, 9.0, 14.2, 9.0)
+draw_box(
+    X_POSITIONS[3],
+    ROW_1_Y,
+    "01_data_cleaning.py\nSafe Cleaning &\nMany-to-One Merge",
+    COLOR_VALIDATION,
+)
 
+draw_box(
+    X_POSITIONS[4],
+    ROW_1_Y,
+    "00_audit_cleaned_data.py\nPost-Cleaning\nIntegrity Audit",
+    COLOR_VALIDATION,
+)
 
-# ============================================================
-# 7. 第二层：分析与建模层
-# ============================================================
-
-draw_box(1.0, 5.7, BOX_W, BOX_H, "02_summer_eda.py\nEDA & Summer Dataset", COLOR_EDA)
-draw_box(4.2, 5.7, BOX_W, BOX_H, "03_baseline_forecasting.py\nLast Week / Rolling Avg /\nPrev-Year Baseline", COLOR_MODEL)
-draw_box(7.4, 5.7, BOX_W, BOX_H, "04_arima_sarima.py\nARIMA / SARIMA", COLOR_MODEL)
-draw_box(10.8, 5.7, BOX_W, BOX_H, "05_ml_regression_models.py\nLinear Regression /\nRandom Forest / XGBoost", COLOR_MODEL)
-draw_box(14.2, 5.7, BOX_W, BOX_H, "Feature Engineering\nLag / Rolling /\nMarkdown / Holiday", COLOR_MODEL)
-
-# 数据层向下
-draw_arrow(15.6, 8.5, 2.4, 6.7)
-draw_arrow(15.6, 8.5, 5.6, 6.7)
-draw_arrow(15.6, 8.5, 8.8, 6.7)
-draw_arrow(15.6, 8.5, 12.2, 6.7)
-draw_arrow(15.6, 8.5, 15.6, 6.7)
-
-# 横向关系
-draw_arrow(3.8, 6.2, 4.2, 6.2)
-draw_arrow(7.0, 6.2, 7.4, 6.2)
-draw_arrow(10.2, 6.2, 10.8, 6.2)
-draw_arrow(13.6, 6.2, 14.2, 6.2)
-
-
-# ============================================================
-# 8. 第三层：评估与业务层
-# ============================================================
-
-draw_box(1.0, 2.0, 3.0, 1.2, "Aggregate-Level Evaluation\nMAE / RMSE / MAPE", COLOR_EVAL)
-draw_box(4.8, 2.0, 3.0, 1.2, "Model Comparison\nBaseline vs ARIMA vs ML", COLOR_EVAL)
-draw_box(8.6, 2.0, 3.0, 1.2, "Feature Importance\nXGBoost Insights", COLOR_EVAL)
-draw_box(12.4, 2.0, 3.0, 1.2, "06_business_recommendations.py\nBusiness Recommendations", COLOR_BIZ)
-draw_box(16.0, 2.0, 3.0, 1.2, "Final Outputs\nREADME / Figures /\nSummary Metrics", COLOR_BIZ)
-
-# 第二层到第三层
-draw_arrow(2.4, 5.7, 2.5, 3.2)
-draw_arrow(5.6, 5.7, 6.2, 3.2)
-draw_arrow(8.8, 5.7, 9.8, 3.2)
-draw_arrow(12.2, 5.7, 13.8, 3.2)
-draw_arrow(15.6, 5.7, 17.5, 3.2)
-
-# 第三层横向
-draw_arrow(4.0, 2.6, 4.8, 2.6)
-draw_arrow(7.8, 2.6, 8.6, 2.6)
-draw_arrow(11.6, 2.6, 12.4, 2.6)
-draw_arrow(15.4, 2.6, 16.0, 2.6)
+for index in range(4):
+    draw_horizontal_arrow(
+        X_POSITIONS[index],
+        X_POSITIONS[index + 1],
+        ROW_1_Y,
+    )
 
 
 # ============================================================
-# 9. 页脚说明
+# 6. 第二层：分析与模型开发
+# 流程方向为从右向左，避免跨层斜线交叉
+# ============================================================
+
+draw_section_title(
+    0.7,
+    7.65,
+    "2. Analysis, Feature Engineering, and Modeling",
+)
+
+draw_box(
+    X_POSITIONS[4],
+    ROW_2_Y,
+    "02_summer_eda.py\nSummer EDA &\nBusiness Patterns",
+    COLOR_ANALYSIS,
+)
+
+draw_box(
+    X_POSITIONS[3],
+    ROW_2_Y,
+    "Leakage-Safe Features\nLag / Rolling /\nCalendar / Markdown",
+    COLOR_ANALYSIS,
+)
+
+draw_box(
+    X_POSITIONS[2],
+    ROW_2_Y,
+    "03 + 04 Models\nBaselines / Rolling\nARIMA & SARIMA",
+    COLOR_MODEL,
+)
+
+draw_box(
+    X_POSITIONS[1],
+    ROW_2_Y,
+    "05 ML Models\nLinear / Random Forest /\nXGBoost",
+    COLOR_MODEL,
+)
+
+draw_box(
+    X_POSITIONS[0],
+    ROW_2_Y,
+    "05b Feature Audit\nFull vs Operational\n27 vs 23 Features",
+    COLOR_EVALUATION,
+)
+
+draw_vertical_arrow(
+    X_POSITIONS[4],
+    ROW_1_Y,
+    ROW_2_Y,
+)
+
+for index in range(4, 0, -1):
+    draw_horizontal_arrow(
+        X_POSITIONS[index],
+        X_POSITIONS[index - 1],
+        ROW_2_Y,
+    )
+
+
+# ============================================================
+# 7. 第三层：评估、模型选择与交付
+# ============================================================
+
+draw_section_title(
+    0.7,
+    3.85,
+    "3. Evaluation, Model Selection, and Business Delivery",
+)
+
+draw_box(
+    X_POSITIONS[0],
+    ROW_3_Y,
+    "Single-Window Evaluation\nGranular vs Company\nMAE / RMSE / WAPE",
+    COLOR_EVALUATION,
+)
+
+draw_box(
+    X_POSITIONS[1],
+    ROW_3_Y,
+    "06 Rolling-Origin\n6 Expanding Folds\n14 Weeks per Fold",
+    COLOR_EVALUATION,
+)
+
+draw_box(
+    X_POSITIONS[2],
+    ROW_3_Y,
+    "Stability Review\nMean / Median / Std\nBias / Fold Wins",
+    COLOR_EVALUATION,
+)
+
+draw_box(
+    X_POSITIONS[3],
+    ROW_3_Y,
+    "Final Model\nOperational XGBoost\nMean WAPE 1.91%",
+    COLOR_FINAL,
+)
+
+draw_box(
+    X_POSITIONS[4],
+    ROW_3_Y,
+    "Business Delivery\nRecommendations /\nREADME / Figures",
+    COLOR_FINAL,
+)
+
+draw_vertical_arrow(
+    X_POSITIONS[0],
+    ROW_2_Y,
+    ROW_3_Y,
+)
+
+for index in range(4):
+    draw_horizontal_arrow(
+        X_POSITIONS[index],
+        X_POSITIONS[index + 1],
+        ROW_3_Y,
+    )
+
+
+# ============================================================
+# 8. 页脚
 # ============================================================
 
 footer_text = (
-    "Workflow Summary: Raw retail data → cleaning & merging → EDA → baseline/statistical/ML forecasting "
-    "→ aggregate evaluation → business recommendations."
+    "50 stores | 20 departments | 156 weeks | "
+    "156,000 rows | rolling one-week-ahead forecasting | "
+    "Operational XGBoost won 5 of 6 folds"
 )
 
 ax.text(
-    10, 0.7,
+    11.3,
+    0.75,
     footer_text,
-    ha="center", va="center",
-    fontsize=10
+    ha="center",
+    va="center",
+    fontsize=FONT_FOOTER,
 )
 
 
 # ============================================================
-# 10. 保存
+# 9. 保存
 # ============================================================
 
 plt.tight_layout()
-plt.savefig(OUTPUT_PATH, bbox_inches="tight")
+
+plt.savefig(
+    OUTPUT_PATH,
+    bbox_inches="tight",
+)
+
 plt.close()
 
-print(f"Project workflow diagram saved to: {OUTPUT_PATH}")
+print(
+    "Updated project workflow diagram saved to:"
+)
+
+print(OUTPUT_PATH)

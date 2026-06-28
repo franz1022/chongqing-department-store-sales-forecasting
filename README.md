@@ -1,4 +1,4 @@
-# Chongqing Department Store Sales Forecasting
+﻿# Chongqing Department Store Sales Forecasting
 
 An end-to-end retail forecasting portfolio project covering data validation, leakage-safe feature engineering, baseline and time-series models, machine-learning regression, forecast-time feature auditing, and multi-window rolling-origin backtesting.
 
@@ -72,7 +72,7 @@ Raw Data Inspection
 → Business Interpretation
 ```
 
-![Project Workflow Diagram](outputs/figures/15_project_workflow_diagram.png)
+![Project Workflow Diagram](outputs/figures/17_project_workflow_diagram.png)
 
 ---
 
@@ -491,3 +491,4 @@ Developed a store-department weekly sales forecasting pipeline using leakage-saf
 ## 20. Disclaimer
 
 This repository is a portfolio and methodology project. It does not claim access to confidential internal data from a real Chongqing retailer.
+
